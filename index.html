@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataLab Chat - Test UI</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #71717a;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --cyan: #22d3ee;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* -- Header ------------------------------------------------------------ */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .health-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .health-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .health-dot.ok { background: var(--green); }
+  .health-dot.degraded { background: var(--yellow); }
+  .health-dot.down { background: var(--red); }
+
+  /* -- Config panel ------------------------------------------------------ */
+  .config-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .config-bar label { color: var(--muted); white-space: nowrap; }
+  .config-bar input, .config-bar select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .config-bar input:focus, .config-bar select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  #jwt-input { width: 220px; }
+  #url-input { width: 200px; }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .mode-toggle button {
+    padding: 5px 14px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .mode-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .ws-status {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ws-status.connected { color: var(--green); }
+  .ws-status.error { color: var(--red); }
+
+  /* -- Chat area --------------------------------------------------------- */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .message {
+    max-width: 90%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .message.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .message.assistant {
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .message.system {
+    align-self: center;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+  .message.error {
+    align-self: center;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    font-size: 13px;
+  }
+
+  .message .meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* -- Data card (filtered DB results) ----------------------------------- */
+  .data-card {
+    align-self: flex-start;
+    max-width: 95%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .data-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(34, 211, 238, 0.08);
+    border-bottom: 1px solid var(--border);
+    color: var(--cyan);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .data-card-header .tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .tag-data { background: rgba(34, 211, 238, 0.15); color: var(--cyan); }
+  .tag-no-data { background: rgba(113, 113, 122, 0.2); color: var(--muted); }
+  .tag-company { background: rgba(99, 102, 241, 0.15); color: var(--accent-hover); }
+
+  .data-card-section {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-card-section:last-child { border-bottom: none; }
+  .data-card-section .section-title {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  /* SQL block */
+  .sql-block {
+    background: var(--bg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--cyan);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* Data table */
+  .data-table-wrap {
+    overflow-x: auto;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .data-table th {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    color: var(--cyan);
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 2px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .data-table tr:hover td { background: rgba(99, 102, 241, 0.05); }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Orchestration info */
+  .orch-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .orch-pill {
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent-hover);
+  }
+
+  /* WS data_md display */
+  .data-md-block {
+    background: var(--bg);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: monospace;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 320px;
+    overflow-y: auto;
+    color: var(--text);
+  }
+
+  .typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    padding: 12px 16px;
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+  }
+  .typing-indicator span {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.4s infinite ease-in-out;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+  }
+
+  /* -- Input bar --------------------------------------------------------- */
+  .input-bar {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #question-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    min-height: 42px;
+    max-height: 120px;
+  }
+  #question-input:focus { outline: none; border-color: var(--accent); }
+  #question-input::placeholder { color: var(--muted); }
+
+  .send-btn {
+    padding: 10px 20px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: flex-end;
+  }
+  .send-btn:hover { background: var(--accent-hover); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .session-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 0 20px 0 20px;
+    margin-top: -8px;
+    margin-bottom: -8px;
+  }
+  .session-bar button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .session-bar button:hover { color: var(--text); border-color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DataLab Chat - Test UI</h1>
+  <div class="health-badge" id="health-badge" onclick="checkHealth()">
+    <div class="health-dot" id="health-dot"></div>
+    <span id="health-text">checking...</span>
+  </div>
+</header>
+
+<div class="config-bar">
+  <label>URL</label>
+  <input id="url-input" value="http://localhost:8000" placeholder="http://localhost:8000">
+
+  <label>JWT</label>
+  <input id="jwt-input" type="password" placeholder="paste Bearer token (optional)">
+
+  <label>Horizon</label>
+  <select id="horizon-select">
+    <option value="short_and_long_term">Short & Long</option>
+    <option value="short_term">Short Term</option>
+    <option value="long_term">Long Term</option>
+  </select>
+
+  <label>Mode</label>
+  <div class="mode-toggle">
+    <button id="mode-http" class="active" onclick="setMode('http')">HTTP</button>
+    <button id="mode-ws" onclick="setMode('ws')">WebSocket</button>
+  </div>
+
+  <span class="ws-status" id="ws-status"></span>
+</div>
+
+<div class="chat-area" id="chat-area"></div>
+
+<div class="session-bar">
+  <span>Session: <code id="session-display">-</code></span>
+  <button onclick="resetSession()">Reset</button>
+</div>
+
+<div class="input-bar">
+  <textarea id="question-input" rows="1" placeholder="Ask about a stock... (Enter to send, Shift+Enter for newline)"></textarea>
+  <button class="send-btn" id="send-btn" onclick="send()">Send</button>
+</div>
+
+<script>
+// -- State ---------------------------------------------------------------
+let mode = 'http';
+let sessionId = '';
+let ws = null;
+let wsConnected = false;
+let sending = false;
+let streamBuffer = '';
+let streamEl = null;
+let dataMdContent = '';
+
+const $ = id => document.getElementById(id);
+const chatArea = $('chat-area');
+
+// -- Helpers -------------------------------------------------------------
+function baseUrl() { return $('url-input').value.replace(/\/+$/, ''); }
+function jwtToken() { return $('jwt-input').value.trim(); }
+function horizon() { return $('horizon-select').value; }
+
+function addMessage(text, cls, extra) {
+  const div = document.createElement('div');
+  div.className = 'message ' + cls;
+  div.textContent = text;
+  if (extra) {
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = extra;
+    div.appendChild(meta);
+  }
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return div;
+}
+
+function addSystemMsg(text) { return addMessage(text, 'system'); }
+function addError(text) { return addMessage(text, 'error'); }
+
+function scrollBottom() { chatArea.scrollTop = chatArea.scrollHeight; }
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'typing-indicator';
+  div.id = 'typing';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  chatArea.appendChild(div);
+  scrollBottom();
+}
+function hideTyping() {
+  const el = $('typing');
+  if (el) el.remove();
+}
+
+function setLoading(v) {
+  sending = v;
+  $('send-btn').disabled = v;
+}
+
+function updateSession(id) {
+  if (id) sessionId = id;
+  $('session-display').textContent = sessionId || '-';
+}
+
+function resetSession() {
+  sessionId = '';
+  updateSession('');
+  addSystemMsg('Session reset');
+}
+
+// -- Render a data card with filtered DB results -------------------------
+function isNumeric(v) {
+  if (v === null || v === undefined || v === '' || v === 'None') return false;
+  return !isNaN(v) && !isNaN(parseFloat(v));
+}
+
+function formatCell(v) {
+  if (v === null || v === undefined || v === 'None') return '-';
+  if (isNumeric(v)) {
+    const n = parseFloat(v);
+    if (Number.isInteger(n) && Math.abs(n) > 9999) return n.toLocaleString();
+    if (!Number.isInteger(n)) return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+  return String(v);
+}
+
+function renderDataCard(data) {
+  const card = document.createElement('div');
+  card.className = 'data-card';
+
+  const orch = data.orchestration_decision || {};
+  const qr = data.query_result || {};
+  const signal = orch.orchestration_signal || qr.orchestration_signal || 'unknown';
+  const company = qr.company;
+  const rawTables = qr.raw_tables || [];
+  const sql = qr.generated_sql || '';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'data-card-header';
+  hdr.innerHTML = 'DB Pipeline Result ';
+  hdr.innerHTML += signal === 'data'
+    ? '<span class="tag tag-data">signal: data</span>'
+    : '<span class="tag tag-no-data">signal: ' + signal + '</span>';
+  if (company && company.ticker)
+    hdr.innerHTML += '<span class="tag tag-company">' + company.ticker + (company.name ? ' - ' + company.name : '') + '</span>';
+  if (company && company.industry)
+    hdr.innerHTML += '<span class="tag tag-company">' + company.industry + '</span>';
+  card.appendChild(hdr);
+
+  // Orchestration pills
+  if (orch.reason || orch.data_requirements) {
+    const sec = document.createElement('div');
+    sec.className = 'data-card-section';
+    sec.innerHTML = '<div class="section-title">Orchestration</div><div class="orch-pills"></div>';
+    const pills = sec.querySelector('.orch-pills');
+    if (orch.reason) pills.innerHTML += '<span class="orch-pill">reason: ' + orch.reason + '</span>';
+    if (orch.should_run_query !== undefined) pills.innerHTML += '<span class="orch-pill">query: ' + orch.should_run_query + '</span>';
+    if (orch.start_year) pills.innerHTML += '<span class="orch-pill">from: ' + orch.start_year + '</span>';
+    if (orch.end_year) pills.innerHTML += '<span class="orch-pill">to: ' + orch.end_year + '</span>';
+    if (orch.data_requirements) pills.innerHTML += '<span class="orch-pill">' + orch.data_requirements + '</span>';
+    card.appendChild(sec);
+  }
+
+  // SQL
+  if (sql) {
+    const sec = document.createElement('div');
+    sec.className = 'data-card-section';
+    sec.innerHTML = '<div class="section-title">Generated SQL</div>';
+    const block = document.createElement('div');
+    block.className = 'sql-block';
+    block.textContent = sql;
+    sec.appendChild(block);
+    if (qr.query_params && Object.keys(qr.query_params).length) {
+      const params = document.createElement('div');
+      params.style.cssText = 'margin-top:6px;font-size:11px;color:var(--muted)';
+      params.textContent = 'params: ' + JSON.stringify(qr.query_params);
+      sec.appendChild(params);
+    }
+    card.appendChild(sec);
+  }
+
+  // Raw tables
+  if (rawTables.length > 0) {
+    rawTables.forEach((rows, idx) => {
+      if (!rows || rows.length === 0) return;
+      const sec = document.createElement('div');
+      sec.className = 'data-card-section';
+      sec.innerHTML = '<div class="section-title">Filtered Data' + (rawTables.length > 1 ? ' (Table ' + (idx+1) + ')' : '') + ' — ' + rows.length + ' rows</div>';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'data-table-wrap';
+      const table = document.createElement('table');
+      table.className = 'data-table';
+
+      const cols = Object.keys(rows[0]);
+      const thead = document.createElement('thead');
+      thead.innerHTML = '<tr>' + cols.map(c => '<th>' + c + '</th>').join('') + '</tr>';
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => {
+          const td = document.createElement('td');
+          const v = row[c];
+          td.textContent = formatCell(v);
+          if (isNumeric(v)) td.className = 'num';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      sec.appendChild(wrap);
+      card.appendChild(sec);
+    });
+  }
+
+  // Snapshots
+  const snapshots = qr.snapshots || [];
+  if (snapshots.length > 0) {
+    const sec = document.createElement('div');
+    sec.className = 'data-card-section';
+    sec.innerHTML = '<div class="section-title">Financial Snapshots — ' + snapshots.length + ' years</div>';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'data-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'data-table';
+
+    const cols = Object.keys(snapshots[0]);
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr>' + cols.map(c => '<th>' + c.replace(/_/g,' ') + '</th>').join('') + '</tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    snapshots.forEach(row => {
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const td = document.createElement('td');
+        const v = row[c];
+        td.textContent = formatCell(v);
+        if (isNumeric(v)) td.className = 'num';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    sec.appendChild(wrap);
+    card.appendChild(sec);
+  }
+
+  // Filtering message
+  if (qr.filtering_message) {
+    const sec = document.createElement('div');
+    sec.className = 'data-card-section';
+    sec.innerHTML = '<div class="section-title">Filter Message</div>';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'font-size:12px;color:var(--yellow)';
+    msg.textContent = qr.filtering_message;
+    sec.appendChild(msg);
+    card.appendChild(sec);
+  }
+
+  chatArea.appendChild(card);
+  scrollBottom();
+  return card;
+}
+
+// -- Render WS data_md as a data card ------------------------------------
+function renderWsDataCard(mdContent) {
+  if (!mdContent || mdContent === '_No database query was required for this question._') {
+    const card = document.createElement('div');
+    card.className = 'data-card';
+    card.innerHTML = '<div class="data-card-header"><span class="tag tag-no-data">No DB query needed</span></div>';
+    chatArea.appendChild(card);
+    scrollBottom();
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'data-card';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'data-card-header';
+  hdr.innerHTML = 'DB Pipeline Result <span class="tag tag-data">signal: data</span>';
+  card.appendChild(hdr);
+
+  const sec = document.createElement('div');
+  sec.className = 'data-card-section';
+  sec.innerHTML = '<div class="section-title">Query Result (Markdown)</div>';
+  const block = document.createElement('div');
+  block.className = 'data-md-block';
+  block.textContent = mdContent;
+  sec.appendChild(block);
+  card.appendChild(sec);
+
+  chatArea.appendChild(card);
+  scrollBottom();
+}
+
+// -- Health --------------------------------------------------------------
+async function checkHealth() {
+  try {
+    const r = await fetch(baseUrl() + '/health');
+    const d = await r.json();
+    const dot = $('health-dot');
+    dot.className = 'health-dot ' + d.status;
+    $('health-text').textContent = `${d.status} | db:${d.db} | llm:${d.llm} | ${d.env}`;
+  } catch (e) {
+    $('health-dot').className = 'health-dot down';
+    $('health-text').textContent = 'unreachable';
+  }
+}
+
+// -- Mode toggle ---------------------------------------------------------
+function setMode(m) {
+  mode = m;
+  $('mode-http').className = m === 'http' ? 'active' : '';
+  $('mode-ws').className = m === 'ws' ? 'active' : '';
+  if (m === 'ws' && !wsConnected) {
+    connectWs();
+  }
+  if (m === 'http' && ws) {
+    ws.close();
+    ws = null;
+    wsConnected = false;
+    $('ws-status').textContent = '';
+    $('ws-status').className = 'ws-status';
+  }
+}
+
+// -- HTTP mode (uses debug endpoint) -------------------------------------
+async function sendHttp(question) {
+  setLoading(true);
+  showTyping();
+  const body = {
+    question,
+    session_id: sessionId,
+    horizon: horizon(),
+  };
+  const headers = { 'Content-Type': 'application/json' };
+  if (jwtToken()) headers['Authorization'] = 'Bearer ' + jwtToken();
+
+  try {
+    const t0 = performance.now();
+    const r = await fetch(baseUrl() + '/api/v1/chat/analyze-debug', {
+      method: 'POST', headers, body: JSON.stringify(body),
+    });
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+
+    hideTyping();
+    if (!r.ok) {
+      const err = await r.text();
+      addError(`HTTP ${r.status}: ${err}`);
+      return;
+    }
+    const data = await r.json();
+
+    // Render data card with filtered DB results
+    renderDataCard(data);
+
+    // Render the answer
+    const meta = [
+      `ticker: ${data.ticker || 'N/A'}`,
+      `years: ${(data.source_years || []).join(', ') || 'none'}`,
+      `${elapsed}s`,
+    ].join(' &middot; ');
+
+    addMessage(data.answer, 'assistant', meta);
+  } catch (e) {
+    hideTyping();
+    addError('Request failed: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// -- WebSocket STOMP mode ------------------------------------------------
+const NULL = '\x00';
+
+function stompEncode(command, headers, body) {
+  let h = Object.entries(headers).map(([k,v]) => k + ':' + v).join('\n');
+  return command + '\n' + h + '\n\n' + (body || '') + NULL;
+}
+
+function stompParse(raw) {
+  raw = raw.replace(/^\r?\n+/, '');
+  if (!raw || raw === NULL) return null;
+  if (raw.endsWith(NULL)) raw = raw.slice(0, -1);
+  const idx = raw.indexOf('\n\n');
+  const head = idx >= 0 ? raw.substring(0, idx) : raw;
+  const body = idx >= 0 ? raw.substring(idx + 2) : '';
+  const lines = head.split('\n');
+  const command = lines[0].trim();
+  const headers = {};
+  for (let i = 1; i < lines.length; i++) {
+    const ci = lines[i].indexOf(':');
+    if (ci > 0) headers[lines[i].substring(0, ci).trim()] = lines[i].substring(ci + 1).trim();
+  }
+  return { command, headers, body };
+}
+
+function connectWs() {
+  if (ws) { ws.close(); ws = null; }
+  const wsUrl = baseUrl().replace(/^http/, 'ws') + '/ws/chat';
+  $('ws-status').textContent = 'connecting...';
+  $('ws-status').className = 'ws-status';
+
+  try {
+    ws = new WebSocket(wsUrl, ['v12.stomp']);
+  } catch (e) {
+    $('ws-status').textContent = 'failed';
+    $('ws-status').className = 'ws-status error';
+    addError('WebSocket connect failed: ' + e.message);
+    return;
+  }
+
+  ws.onopen = () => {
+    const hdrs = { 'accept-version': '1.2', 'heart-beat': '0,0' };
+    if (jwtToken()) hdrs['Authorization'] = 'Bearer ' + jwtToken();
+    ws.send(stompEncode('CONNECT', hdrs, ''));
+  };
+
+  ws.onmessage = (evt) => {
+    const data = evt.data;
+    if (data === '\n') return; // heartbeat
+
+    const frame = stompParse(data);
+    if (!frame) return;
+
+    if (frame.command === 'CONNECTED') {
+      wsConnected = true;
+      const uid = frame.headers['user-id'] || 'unknown';
+      $('ws-status').textContent = 'connected (user: ' + uid + ')';
+      $('ws-status').className = 'ws-status connected';
+      ws.send(stompEncode('SUBSCRIBE', { id: 'sub-0', destination: '/user/queue/chat' }, ''));
+      return;
+    }
+
+    if (frame.command === 'ERROR') {
+      hideTyping();
+      setLoading(false);
+      addError('STOMP ERROR: ' + (frame.headers.message || frame.body));
+      return;
+    }
+
+    if (frame.command === 'MESSAGE') {
+      let payload;
+      try { payload = JSON.parse(frame.body); } catch { return; }
+
+      if (payload.type === 'session') {
+        updateSession(payload.session_id);
+        return;
+      }
+
+      if (payload.type === 'data_md') {
+        dataMdContent = payload.content || '';
+        hideTyping();
+        renderWsDataCard(dataMdContent);
+        showTyping();
+        return;
+      }
+
+      if (payload.type === 'token') {
+        hideTyping();
+        if (!streamEl) {
+          streamEl = document.createElement('div');
+          streamEl.className = 'message assistant';
+          chatArea.appendChild(streamEl);
+        }
+        streamBuffer += payload.content;
+        streamEl.textContent = streamBuffer;
+        scrollBottom();
+        return;
+      }
+
+      if (payload.type === 'done') {
+        hideTyping();
+        if (streamEl) {
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          meta.innerHTML = [
+            'ticker: ' + (payload.ticker || 'N/A'),
+            'years: ' + (payload.source_years || []).join(', '),
+          ].join(' &middot; ');
+          streamEl.appendChild(meta);
+        }
+        streamBuffer = '';
+        streamEl = null;
+        dataMdContent = '';
+        setLoading(false);
+        return;
+      }
+
+      if (payload.type === 'error') {
+        hideTyping();
+        streamBuffer = '';
+        streamEl = null;
+        dataMdContent = '';
+        setLoading(false);
+        addError(payload.content || 'Unknown pipeline error');
+        return;
+      }
+    }
+  };
+
+  ws.onerror = () => {
+    $('ws-status').textContent = 'error';
+    $('ws-status').className = 'ws-status error';
+    wsConnected = false;
+  };
+
+  ws.onclose = (evt) => {
+    wsConnected = false;
+    $('ws-status').textContent = 'disconnected (' + evt.code + ')';
+    $('ws-status').className = 'ws-status error';
+    ws = null;
+    hideTyping();
+    setLoading(false);
+  };
+}
+
+function sendWs(question) {
+  if (!wsConnected || !ws) {
+    addError('WebSocket not connected. Reconnecting...');
+    connectWs();
+    return;
+  }
+  setLoading(true);
+  showTyping();
+  streamBuffer = '';
+  streamEl = null;
+  dataMdContent = '';
+
+  const body = JSON.stringify({
+    question,
+    session_id: sessionId,
+    horizon: horizon(),
+  });
+  ws.send(stompEncode('SEND', { destination: '/app/chat/analyze', 'content-type': 'application/json' }, body));
+}
+
+// -- Send dispatcher -----------------------------------------------------
+function send() {
+  const input = $('question-input');
+  const q = input.value.trim();
+  if (!q || sending) return;
+
+  addMessage(q, 'user');
+  input.value = '';
+  input.style.height = 'auto';
+
+  if (mode === 'http') sendHttp(q);
+  else sendWs(q);
+}
+
+// -- Input handling ------------------------------------------------------
+$('question-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+$('question-input').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// -- Init ----------------------------------------------------------------
+checkHealth();
+setInterval(checkHealth, 30000);
+addSystemMsg('Ready. Type a question to start. HTTP mode uses the debug endpoint to show filtered DB data.');
+</script>
+</body>
+</html>
